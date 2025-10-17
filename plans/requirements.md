@@ -906,6 +906,15 @@ multiverse_inference_in_class/
 │   ├── test.html              # Inference test interface
 │   ├── logs.html              # Logs viewer (optional)
 │   └── settings.html          # Settings view (optional)
+├── deploy/                     # Deployment automation
+│   ├── gce-setup.sh           # GCE instance initialization
+│   ├── install.sh             # Install and configure
+│   ├── update.sh              # Update deployment
+│   ├── backup.sh              # Database backup script
+│   ├── multiverse-gateway.service  # systemd service file
+│   ├── nginx.conf             # nginx reverse proxy config
+│   ├── Caddyfile              # Alternative: Caddy config
+│   └── README.md              # Deployment guide
 └── tests/
     ├── __init__.py
     ├── test_registry.py
@@ -917,6 +926,8 @@ multiverse_inference_in_class/
 
 ### 6.5 Deployment
 
+#### 6.5.1 Local Development Deployment
+
 **TECH-DEPLOY-001**: The system MUST be runnable with a single command: `uvicorn app.main:app`
 
 **TECH-DEPLOY-002**: The system MAY support running as a background process using: `nohup uvicorn app.main:app &`
@@ -927,6 +938,93 @@ multiverse_inference_in_class/
 1. Activates virtual environment (if present)
 2. Sources `.env` file
 3. Starts uvicorn server
+
+#### 6.5.2 Production Deployment (Google Compute Engine)
+
+**TECH-DEPLOY-PROD-001**: The system MUST be deployable on Google Compute Engine (GCE).
+
+**TECH-DEPLOY-PROD-002**: Recommended GCE instance specifications:
+- **Machine type**: e2-micro (0.25-2 vCPU, 1 GB memory) for testing/small classes
+- **Alternative**: e2-small (0.5-2 vCPU, 2 GB memory) for larger classes (30+ students)
+- **Operating System**: Ubuntu 22.04 LTS or Ubuntu 24.04 LTS
+- **Boot disk**: 10 GB standard persistent disk
+- **Region**: us-central1 or closest to students
+- **Network**: Allow HTTP (port 80) and HTTPS (port 443) traffic
+- **Estimated cost**: ~$6-12/month for e2-micro, ~$15-25/month for e2-small
+
+**TECH-DEPLOY-PROD-003**: The system MUST run as a systemd service for automatic startup and restart.
+
+**TECH-DEPLOY-PROD-004**: The system MUST use a reverse proxy (nginx or Caddy) for:
+- Serving on standard HTTP/HTTPS ports
+- SSL/TLS certificate management (Let's Encrypt)
+- Static file serving optimization
+- Request logging
+
+**TECH-DEPLOY-PROD-005**: The deployment SHOULD include:
+- Automatic database backups (daily snapshot to GCS bucket)
+- Log rotation configured
+- Firewall rules limiting access to necessary ports
+- Monitoring script checking service health
+
+**TECH-DEPLOY-PROD-006**: The system MUST provide deployment automation scripts:
+- `deploy/gce-setup.sh` - Initial GCE instance setup
+- `deploy/install.sh` - Install dependencies and configure system
+- `deploy/update.sh` - Update to new version without downtime
+- `deploy/backup.sh` - Manual backup trigger
+
+**TECH-DEPLOY-PROD-007**: Deployment steps MUST be documented for:
+1. Creating GCE instance via console or gcloud CLI
+2. SSH access configuration
+3. Installing system dependencies (Python 3.11, nginx/Caddy, git)
+4. Cloning repository
+5. Configuring environment variables
+6. Setting up systemd service
+7. Configuring reverse proxy with SSL
+8. Testing deployment
+9. Monitoring and maintenance
+
+**TECH-DEPLOY-PROD-008**: The system SHOULD support zero-downtime updates using:
+- Graceful shutdown (existing requests complete)
+- Health check endpoint for load balancer readiness
+- Quick rollback capability (git checkout + service restart)
+
+**TECH-DEPLOY-PROD-009**: Security hardening requirements:
+- Non-root user for running the service
+- Firewall configured (ufw or GCP firewall rules)
+- SSH key-only authentication
+- Automatic security updates enabled
+- Rate limiting at reverse proxy level
+- API key rotation documented
+
+#### 6.5.3 Deployment Costs Estimation (GCE)
+
+**e2-micro instance** (Recommended for small classes <20 students):
+- Machine type: 0.25-2 vCPU (shared), 1 GB memory
+- Cost: ~$6-8/month with sustained use discount
+- Boot disk (10 GB): ~$2/month
+- Egress (typical): ~$1-2/month
+- **Total: ~$9-12/month**
+
+**e2-small instance** (For larger classes 20-50 students):
+- Machine type: 0.5-2 vCPU (shared), 2 GB memory
+- Cost: ~$15-18/month with sustained use discount
+- Boot disk (10 GB): ~$2/month
+- Egress (typical): ~$2-5/month
+- **Total: ~$19-25/month**
+
+**Additional optional costs**:
+- Domain name: ~$12/year (~$1/month)
+- Cloud Storage for backups: ~$0.50-2/month
+- Static IP address: ~$7/month (optional, use ephemeral IP to save cost)
+
+**Cost optimization tips**:
+- Use ephemeral external IP (free) instead of static IP
+- Use Cloud Storage Standard for backups (cheapest tier)
+- Enable preemptible instances for dev/test (not recommended for production)
+- Use sustained use discounts (automatic with GCE)
+- Monitor usage and right-size instance if needed
+
+**Estimated total monthly cost: $10-27** depending on instance size and class usage.
 
 ## 7. Testing and Quality Assurance
 
@@ -1249,6 +1347,110 @@ for server in response.json():
 3. Use "Force Health Check" button to manually trigger check
 4. Use "Edit" button to update server configuration
 5. Use "Delete" button to deregister server
+
+### 9.6 Production Deployment on Google Compute Engine
+
+**Step 1: Create GCE Instance**
+
+Using gcloud CLI:
+```bash
+# Create e2-micro instance
+gcloud compute instances create multiverse-gateway \
+  --machine-type=e2-micro \
+  --zone=us-central1-a \
+  --image-family=ubuntu-2204-lts \
+  --image-project=ubuntu-os-cloud \
+  --boot-disk-size=10GB \
+  --boot-disk-type=pd-standard \
+  --tags=http-server,https-server
+
+# Configure firewall rules (if not already set)
+gcloud compute firewall-rules create allow-http \
+  --allow=tcp:80 \
+  --target-tags=http-server
+
+gcloud compute firewall-rules create allow-https \
+  --allow=tcp:443 \
+  --target-tags=https-server
+```
+
+**Step 2: SSH into Instance and Run Setup Script**
+```bash
+# SSH into instance
+gcloud compute ssh multiverse-gateway --zone=us-central1-a
+
+# On the instance, clone repository
+git clone https://github.com/yourusername/multiverse_inference_in_class.git
+cd multiverse_inference_in_class
+
+# Run automated setup
+sudo bash deploy/gce-setup.sh
+bash deploy/install.sh
+
+# Configure environment
+cp .env.example .env
+nano .env  # Edit configuration values
+
+# Start service
+sudo systemctl start multiverse-gateway
+sudo systemctl enable multiverse-gateway
+
+# Check status
+sudo systemctl status multiverse-gateway
+```
+
+**Step 3: Configure Domain and SSL (Optional but Recommended)**
+```bash
+# Point your domain to the instance's external IP
+# Then run Caddy for automatic HTTPS
+sudo systemctl start caddy
+sudo systemctl enable caddy
+
+# Or configure nginx with certbot
+sudo certbot --nginx -d gateway.yourdomain.com
+```
+
+**Step 4: Verify Deployment**
+```bash
+# Check service is running
+curl http://localhost:8000/health
+
+# Check through reverse proxy
+curl http://your-instance-ip/health
+# Or
+curl https://gateway.yourdomain.com/health
+```
+
+**Step 5: Setup Monitoring and Backups**
+```bash
+# Enable daily backups (edit crontab)
+crontab -e
+# Add: 0 2 * * * /home/username/multiverse_inference_in_class/deploy/backup.sh
+
+# Monitor logs
+sudo journalctl -u multiverse-gateway -f
+
+# View application logs
+tail -f logs/gateway.log
+```
+
+**Common Management Tasks**:
+```bash
+# Restart service
+sudo systemctl restart multiverse-gateway
+
+# Update to latest version
+bash deploy/update.sh
+
+# View logs
+sudo journalctl -u multiverse-gateway --since "1 hour ago"
+
+# Backup database manually
+bash deploy/backup.sh
+
+# Check service status
+sudo systemctl status multiverse-gateway
+```
 
 ## 10. Future Enhancements (Out of Scope for Initial Release)
 

@@ -486,6 +486,67 @@ async def list_model_servers(
 
 
 @router.get(
+    "/servers/{registration_id}",
+    summary="Get server details",
+    description="Get detailed information about a specific server",
+    responses={
+        200: {
+            "description": "Server details"
+        },
+        404: {
+            "description": "Server not found"
+        }
+    },
+    dependencies=[Depends(verify_admin_api_key)]
+)
+async def get_server(registration_id: str):
+    """Get detailed information about a specific server.
+    
+    Args:
+        registration_id: Unique registration ID of the server
+        
+    Returns:
+        Server details including metadata and health information
+        
+    Raises:
+        HTTPException: If server not found or database error occurs
+    """
+    try:
+        server = await get_server_by_id(registration_id)
+        
+        if not server:
+            logger.warning(f"Server not found: {registration_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": {
+                        "message": f"Server with ID '{registration_id}' not found",
+                        "type": "not_found_error",
+                        "code": "server_not_found"
+                    }
+                }
+            )
+        
+        logger.info(f"Retrieved details for server: {registration_id}")
+        return server
+    
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Failed to get server details: {error}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "message": "Failed to retrieve server details",
+                    "type": "server_error",
+                    "code": "server_retrieval_failed"
+                }
+            }
+        )
+
+
+@router.get(
     "/stats",
     summary="Get gateway statistics",
     description="Retrieve statistics about registered servers and models",

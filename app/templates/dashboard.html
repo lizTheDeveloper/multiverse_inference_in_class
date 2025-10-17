@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Multiverse Gateway{% endblock %}
+
+{% block content %}
+<div x-data="dashboardData()" x-init="init()">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900">Dashboard</h2>
+        <p class="mt-2 text-sm text-gray-600">Monitor all registered servers and their health status</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <!-- Total Servers -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Servers</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" x-text="stats.total_servers || 0"></div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Healthy Servers -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Healthy</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-green-600" x-text="stats.servers_by_health?.healthy || 0"></div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unhealthy Servers -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Unhealthy</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-red-600" x-text="stats.servers_by_health?.unhealthy || 0"></div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Models -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Models</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900" x-text="stats.total_models || 0"></div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Actions -->
+    <div class="bg-white shadow sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
+                <!-- Search and Filters -->
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 flex-1">
+                    <input type="text" 
+                           x-model="searchTerm" 
+                           @input.debounce.300ms="loadServers()"
+                           placeholder="Search by name, model, or owner..." 
+                           class="block w-full sm:w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                    
+                    <select x-model="healthFilter" 
+                            @change="loadServers()"
+                            class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                        <option value="all">All Status</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="unhealthy">Unhealthy</option>
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex space-x-3">
+                    <button @click="loadServers()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="autoRefresh" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <span class="ml-2 text-sm text-gray-700">Auto-refresh (30s)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Servers Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Check</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-if="loading">
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center">
+                                <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </td>
+                        </tr>
+                    </template>
+                    
+                    <template x-if="!loading && servers.length === 0">
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                                </svg>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">No servers registered</h3>
+                                <p class="mt-1 text-sm text-gray-500">Get started by registering your first server.</p>
+                                <div class="mt-6">
+                                    <a href="/register" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                                        Register Server
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    
+                    <template x-for="server in servers" :key="server.registration_id">
+                        <tr class="hover:bg-gray-50 cursor-pointer" @click="window.location.href=`/server/${server.registration_id}`">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900" x-text="server.registration_id.substring(0, 20) + '...'"></div>
+                                        <div class="text-sm text-gray-500" x-text="server.endpoint_url"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900" x-text="server.model_name"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span :class="{
+                                    'status-healthy': server.health_status === 'healthy',
+                                    'status-unhealthy': server.health_status === 'unhealthy',
+                                    'status-unknown': server.health_status === 'unknown'
+                                }" class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" x-text="server.health_status || 'unknown'"></span>
+                                <div class="text-xs text-gray-500 mt-1" x-show="server.consecutive_failures > 0">
+                                    <span x-text="server.consecutive_failures"></span> failures
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div x-text="server.owner_name || 'Unknown'"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span x-text="formatRelativeTime(server.last_checked_at)"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button @click.stop="deleteServer(server.registration_id)" 
+                                        class="text-red-600 hover:text-red-900">Delete</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function dashboardData() {
+    return {
+        loading: false,
+        servers: [],
+        stats: {},
+        searchTerm: '',
+        healthFilter: 'all',
+        autoRefresh: false,
+        refreshInterval: null,
+
+        init() {
+            this.loadStats();
+            this.loadServers();
+            
+            // Set up auto-refresh
+            this.$watch('autoRefresh', value => {
+                if (value) {
+                    this.refreshInterval = setInterval(() => {
+                        this.loadStats();
+                        this.loadServers();
+                    }, 30000); // 30 seconds
+                } else {
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
+                        this.refreshInterval = null;
+                    }
+                }
+            });
+        },
+
+        async loadStats() {
+            try {
+                this.stats = await api.get('/admin/stats', true);
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+                toast.error('Failed to load statistics');
+            }
+        },
+
+        async loadServers() {
+            this.loading = true;
+            try {
+                const params = new URLSearchParams();
+                if (this.healthFilter !== 'all') {
+                    params.append('health_status', this.healthFilter);
+                }
+                if (this.searchTerm) {
+                    params.append('search', this.searchTerm);
+                }
+                
+                const url = `/admin/servers${params.toString() ? '?' + params.toString() : ''}`;
+                const response = await api.get(url, true);
+                this.servers = response.servers || [];
+            } catch (error) {
+                console.error('Failed to load servers:', error);
+                toast.error('Failed to load servers');
+                this.servers = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async deleteServer(registrationId) {
+            if (!confirm('Are you sure you want to delete this server?')) {
+                return;
+            }
+            
+            try {
+                await api.delete(`/admin/register/${registrationId}`, true);
+                toast.success('Server deleted successfully');
+                this.loadStats();
+                this.loadServers();
+            } catch (error) {
+                console.error('Failed to delete server:', error);
+                toast.error('Failed to delete server: ' + error.message);
+            }
+        }
+    };
+}
+</script>
+{% endblock %}
+

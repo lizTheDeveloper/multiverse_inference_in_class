@@ -1,0 +1,45 @@
+[Unit]
+Description=Multiverse Inference Gateway
+Documentation=https://github.com/your-org/multiverse-gateway
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gateway
+Group=gateway
+WorkingDirectory=/opt/multiverse-gateway
+
+# Environment
+Environment="PATH=/opt/multiverse-gateway/env/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/multiverse-gateway/.env
+
+# Start command
+ExecStart=/opt/multiverse-gateway/env/bin/python -m uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --log-level info
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=0
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=1G
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/multiverse-gateway/logs /opt/multiverse-gateway
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=multiverse-gateway
+
+[Install]
+WantedBy=multi-user.target

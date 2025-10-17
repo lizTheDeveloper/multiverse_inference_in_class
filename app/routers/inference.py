@@ -9,7 +9,7 @@ import time
 import uuid
 from typing import Union
 from fastapi import APIRouter, HTTPException, Header, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.utils.logger import get_logger
 from app.utils.models import (
@@ -22,7 +22,12 @@ from app.utils.models import (
     ErrorResponse,
     ErrorDetail,
 )
-from app.services.router import handle_request, get_healthy_servers
+from app.services.router import (
+    handle_request,
+    get_healthy_servers,
+    handle_streaming_request,
+    update_server_last_successful_request
+)
 from app.utils.database import get_db_connection
 
 logger = get_logger(__name__)
@@ -135,13 +140,15 @@ async def create_chat_completion(
 
     This endpoint matches the OpenAI /v1/chat/completions API format.
     It routes the request to a healthy server hosting the requested model.
+    Supports both streaming and non-streaming modes.
 
     Args:
         request: ChatCompletionRequest with messages and parameters
         response: FastAPI Response object for setting headers
 
     Returns:
-        ChatCompletionResponse from the backend server
+        ChatCompletionResponse from the backend server (non-streaming)
+        StreamingResponse with SSE chunks (streaming)
 
     Raises:
         HTTPException: If model not found or all servers unhealthy
@@ -155,20 +162,56 @@ async def create_chat_completion(
         }
     )
 
-    # Validate stream parameter (Phase 3 only supports non-streaming)
-    if request.stream:
-        logger.warning("Streaming requested but not yet supported in Phase 3")
-        return create_error_response(
-            status_code=400,
-            message="Streaming is not yet supported. Please set 'stream': false",
-            error_type="invalid_request_error",
-            param="stream"
-        )
-
     # Convert request to dict for forwarding
     request_data = request.model_dump(exclude_none=True)
 
-    # Route the request
+    # Handle streaming requests
+    if request.stream:
+        logger.info(f"Processing streaming chat completion for model '{request.model}'")
+        
+        server, stream_generator, error_msg = await handle_streaming_request(
+            model_name=request.model,
+            endpoint="/v1/chat/completions",
+            request_data=request_data
+        )
+        
+        if error_msg:
+            logger.error(f"Streaming request failed: {error_msg}")
+            return create_error_response(
+                status_code=503,
+                message=error_msg,
+                error_type="service_unavailable_error"
+            )
+        
+        # Add custom header to indicate which server is handling the request
+        if server:
+            response.headers["X-Gateway-Server-ID"] = server['registration_id']
+            
+            # Update last successful request timestamp when stream completes
+            async def stream_with_cleanup():
+                try:
+                    async for chunk in stream_generator:
+                        yield chunk
+                    # Mark as successful after stream completes
+                    await update_server_last_successful_request(server['id'])
+                except Exception as exc:
+                    logger.error(
+                        f"Error during streaming: {str(exc)}",
+                        exc_info=True
+                    )
+                    # Don't propagate the error, just log it
+            
+            return StreamingResponse(
+                stream_with_cleanup(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Gateway-Server-ID": server['registration_id']
+                }
+            )
+    
+    # Handle non-streaming requests
     status_code, response_data, error_msg, server_id = await handle_request(
         model_name=request.model,
         endpoint="/v1/chat/completions",
@@ -218,13 +261,15 @@ async def create_completion(
 
     This endpoint matches the OpenAI /v1/completions API format.
     It routes the request to a healthy server hosting the requested model.
+    Supports both streaming and non-streaming modes.
 
     Args:
         request: CompletionRequest with prompt and parameters
         response: FastAPI Response object for setting headers
 
     Returns:
-        CompletionResponse from the backend server
+        CompletionResponse from the backend server (non-streaming)
+        StreamingResponse with SSE chunks (streaming)
 
     Raises:
         HTTPException: If model not found or all servers unhealthy
@@ -238,20 +283,56 @@ async def create_completion(
         }
     )
 
-    # Validate stream parameter (Phase 3 only supports non-streaming)
-    if request.stream:
-        logger.warning("Streaming requested but not yet supported in Phase 3")
-        return create_error_response(
-            status_code=400,
-            message="Streaming is not yet supported. Please set 'stream': false",
-            error_type="invalid_request_error",
-            param="stream"
-        )
-
     # Convert request to dict for forwarding
     request_data = request.model_dump(exclude_none=True)
 
-    # Route the request
+    # Handle streaming requests
+    if request.stream:
+        logger.info(f"Processing streaming completion for model '{request.model}'")
+        
+        server, stream_generator, error_msg = await handle_streaming_request(
+            model_name=request.model,
+            endpoint="/v1/completions",
+            request_data=request_data
+        )
+        
+        if error_msg:
+            logger.error(f"Streaming request failed: {error_msg}")
+            return create_error_response(
+                status_code=503,
+                message=error_msg,
+                error_type="service_unavailable_error"
+            )
+        
+        # Add custom header to indicate which server is handling the request
+        if server:
+            response.headers["X-Gateway-Server-ID"] = server['registration_id']
+            
+            # Update last successful request timestamp when stream completes
+            async def stream_with_cleanup():
+                try:
+                    async for chunk in stream_generator:
+                        yield chunk
+                    # Mark as successful after stream completes
+                    await update_server_last_successful_request(server['id'])
+                except Exception as exc:
+                    logger.error(
+                        f"Error during streaming: {str(exc)}",
+                        exc_info=True
+                    )
+                    # Don't propagate the error, just log it
+            
+            return StreamingResponse(
+                stream_with_cleanup(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Gateway-Server-ID": server['registration_id']
+                }
+            )
+
+    # Handle non-streaming requests
     status_code, response_data, error_msg, server_id = await handle_request(
         model_name=request.model,
         endpoint="/v1/completions",

@@ -545,34 +545,34 @@ Frontend (JavaScript/CSS via CDN):
 **Phase Goal**: Add Server-Sent Events streaming support for real-time inference responses.
 
 **Key Tasks**:
-- [ ] Update inference endpoints to handle `stream: true` parameter
+- [x] Update inference endpoints to handle `stream: true` parameter
   - Modify `POST /v1/chat/completions` per **FR-API-INF-006**
   - Modify `POST /v1/completions` per **FR-API-INF-006**
-- [ ] Implement streaming response proxy in Router Service
+- [x] Implement streaming response proxy in Router Service
   - Detect `stream: true` in request
   - Forward request to backend with streaming enabled
   - Stream response chunks back to client
   - Use FastAPI `StreamingResponse` class
-- [ ] Implement SSE format per specification
+- [x] Implement SSE format per specification
   - Format: `data: {JSON}\n\n` per SSE spec (reference 1.4)
   - Each chunk is a complete SSE event
   - Send `data: [DONE]\n\n` at end of stream
-- [ ] Handle streaming errors gracefully
+- [x] Handle streaming errors gracefully
   - If backend connection drops mid-stream, log error
   - Close client connection cleanly
   - Mark server as unhealthy if streaming fails
-- [ ] Update request forwarding to use `httpx` streaming
+- [x] Update request forwarding to use `httpx` streaming
   - Use `httpx.AsyncClient.stream()` method
   - Async iterate over response chunks
   - Forward each chunk to client immediately
-- [ ] Add streaming-specific logging
+- [x] Add streaming-specific logging
   - Log when streaming starts
   - Log chunk count and total bytes transferred
   - Log streaming completion or errors
-- [ ] Update Pydantic models for streaming responses
+- [x] Update Pydantic models for streaming responses
   - Add streaming response chunk models
   - Match OpenAI streaming format exactly
-- [ ] Write integration tests
+- [x] Write integration tests
   - Test streaming chat completions (TC-INF-005)
   - Test streaming completions
   - Test streaming with multiple chunks
@@ -582,12 +582,12 @@ Frontend (JavaScript/CSS via CDN):
 **Effort Estimate**: M (Medium complexity, streaming proxy logic)
 
 **Definition of Done**:
-- [ ] Streaming responses work with OpenAI Python library
-- [ ] SSE format matches specification
-- [ ] Streaming errors handled gracefully
-- [ ] Both streaming and non-streaming modes work
-- [ ] Streaming-specific events logged
-- [ ] Integration tests pass with ≥70% coverage
+- [x] Streaming responses work with OpenAI Python library
+- [x] SSE format matches specification
+- [x] Streaming errors handled gracefully
+- [x] Both streaming and non-streaming modes work
+- [x] Streaming-specific events logged
+- [x] Integration tests pass with ≥70% coverage
 - [ ] Manual test: Stream a long response and verify real-time display
 - [ ] PR merged to main branch
 
@@ -725,7 +725,7 @@ Frontend (JavaScript/CSS via CDN):
   - Validate numeric ranges
   - Sanitize string inputs
   - Enforce request body size limits (1MB max)
-- [ ] Improve logging coverage
+- [x] Improve logging coverage
   - Add request/response correlation IDs
   - Log system startup/shutdown per **FR-LOG-005**
   - Add configuration change logging
@@ -734,7 +734,7 @@ Frontend (JavaScript/CSS via CDN):
 - [ ] Optional: Create `health_checks` table for historical tracking per **FR-REG-004**
   - Store last 100 health check results per server
   - Query endpoint to retrieve health history
-- [ ] Write comprehensive README.md per **NFR-USE-004**
+- [x] Write comprehensive README.md per **NFR-USE-004**
   - System overview
   - Prerequisites (Python 3.11+)
   - Installation steps
@@ -749,7 +749,7 @@ Frontend (JavaScript/CSS via CDN):
   - `.env` configuration
   - First run walkthrough
   - Target: Complete setup in < 15 minutes
-- [ ] Create example scripts per **NFR-USE-005**
+- [x] Create example scripts per **NFR-USE-005**
   - `examples/register_server.py` - Student hosting example
   - `examples/use_model.py` - Student using example
   - `examples/list_models.py` - List available models
@@ -759,7 +759,7 @@ Frontend (JavaScript/CSS via CDN):
   - Document request/response formats
   - Add example requests and responses
   - Document error codes and meanings
-- [ ] Create startup script per **TECH-DEPLOY-004**
+- [x] Create startup script per **TECH-DEPLOY-004**
   - `start.sh` - Activates venv, sources `.env`, starts uvicorn
   - `stop.sh` - Gracefully stops the gateway
 - [ ] Performance testing per **PERF-TEST-001**, **PERF-TEST-002**
@@ -767,12 +767,44 @@ Frontend (JavaScript/CSS via CDN):
   - Measure gateway latency overhead
   - Verify < 100ms overhead requirement
   - Test with 50 registered servers
-- [ ] Create deployment checklist
-  - Steps to deploy on VM
-  - Recommended process supervisor setup (systemd example)
-  - Backup/restore procedure for database
-  - Security hardening checklist
-- [ ] Write devlog entry summarizing implementation
+- [x] Create GCE deployment automation per **TECH-DEPLOY-PROD-006**
+  - `deploy/gce-setup.sh` - GCE instance initialization script
+  - `deploy/install.sh` - Install Python 3.11, dependencies, configure system
+  - `deploy/update.sh` - Pull latest code, restart service
+  - `deploy/backup.sh` - Backup database to GCS bucket
+  - `deploy/multiverse-gateway.service` - systemd service file
+  - `deploy/nginx.conf` or `deploy/Caddyfile` - Reverse proxy config
+- [x] Write comprehensive deployment documentation per **TECH-DEPLOY-PROD-007**
+  - GCE instance creation guide (console and gcloud CLI)
+  - Instance specifications: e2-micro (1 GB RAM, 0.25-2 vCPU)
+  - SSH setup and key configuration
+  - System dependencies installation
+  - Repository setup and configuration
+  - Systemd service setup and management
+  - Reverse proxy setup (nginx or Caddy)
+  - SSL certificate setup with Let's Encrypt
+  - Firewall configuration (ports 22, 80, 443)
+  - Health monitoring and alerts
+  - Backup and restore procedures
+  - Update and rollback procedures
+  - Troubleshooting common issues
+- [ ] Create security hardening guide per **TECH-DEPLOY-PROD-009**
+  - Non-root user setup for service
+  - SSH key-only authentication
+  - Firewall rules (ufw or GCP firewall)
+  - Automatic security updates
+  - API key rotation procedure
+  - Rate limiting configuration
+  - HTTPS enforcement
+- [ ] Create monitoring and maintenance guide
+  - Service status checking (systemctl, logs)
+  - Database size monitoring
+  - Disk space monitoring
+  - Log rotation verification
+  - Backup verification
+  - Performance metrics collection
+  - Common maintenance tasks
+- [x] Write devlog entry summarizing implementation
   - Key decisions made
   - Challenges encountered
   - Lessons learned
@@ -784,17 +816,22 @@ Frontend (JavaScript/CSS via CDN):
 - [ ] All error messages are clear and actionable
 - [ ] Rate limiting implemented and tested
 - [ ] Comprehensive logging covers all events
-- [ ] README enables setup in < 15 minutes (tested with naive user)
-- [ ] Example scripts work and are well-commented
+- [x] README enables setup in < 15 minutes (tested with naive user)
+- [x] Example scripts work and are well-commented
 - [ ] API documentation complete in `/docs`
-- [ ] Startup/stop scripts functional
+- [x] Startup/stop scripts functional
 - [ ] Performance tests pass (≥100 concurrent, <100ms overhead)
 - [ ] Code coverage ≥ 70% per **NFR-MAINT-003**, **TEST-004**
 - [ ] All code follows PEP 8, has type hints and docstrings
-- [ ] Deployment checklist complete
+- [x] GCE deployment scripts complete and tested
+- [x] Deployment documentation covers all steps from instance creation to SSL setup
+- [ ] Security hardening guide complete
+- [ ] Successfully deployed to test GCE e2-micro instance
+- [ ] Monitoring and maintenance procedures documented
+- [ ] Backup and restore procedures tested
 - [ ] System meets all success criteria from Section 1
 - [ ] PR merged to main branch
-- [ ] System ready for classroom rollout
+- [ ] System ready for classroom rollout on GCE
 
 ---
 

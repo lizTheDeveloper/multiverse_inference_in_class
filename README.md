@@ -144,18 +144,96 @@ All configuration is managed through environment variables, which can be set in 
 
 Once the gateway is running, visit http://localhost:8000/docs for interactive API documentation.
 
-### Phase 1: Core Endpoints
+### System Endpoints
 
-- `GET /` - API information
+- `GET /` - API root information
 - `GET /health` - Gateway health check
 
-### Future Phases
+### Admin API (`/admin/*`)
 
-Additional endpoints will be added in subsequent phases:
-- **Phase 2**: Admin API for server registration (`/admin/*`)
-- **Phase 3**: Inference API for model requests (`/v1/*`)
-- **Phase 4**: Background health monitoring
-- **Phase 5**: Streaming support
+Admin endpoints require authentication via `X-API-Key` header.
+
+- `POST /admin/register` - Register a new model server
+- `DELETE /admin/register/{registration_id}` - Deregister a server
+- `PUT /admin/register/{registration_id}` - Update server details
+- `GET /admin/servers` - List all registered servers (with optional filters)
+- `GET /admin/stats` - Get gateway statistics
+
+### Inference API (`/v1/*`)
+
+OpenAI-compatible endpoints for making model requests.
+
+- `GET /v1/models` - List available models
+- `POST /v1/chat/completions` - Create a chat completion
+- `POST /v1/completions` - Create a text completion
+
+## Usage Examples
+
+### Registering a Model Server
+
+```bash
+curl -X POST "http://localhost:8000/admin/register" \
+  -H "X-API-Key: your-admin-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_name": "llama-2-7b",
+    "endpoint_url": "https://your-server.ngrok.io",
+    "owner_name": "Your Name",
+    "owner_email": "your.email@example.com",
+    "description": "My model server"
+  }'
+```
+
+### Listing Available Models
+
+```bash
+curl http://localhost:8000/v1/models
+```
+
+### Making an Inference Request
+
+Using the OpenAI Python library:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"  # Gateway doesn't require client API keys by default
+)
+
+response = client.chat.completions.create(
+    model="llama-2-7b",
+    messages=[
+        {"role": "user", "content": "Hello! How are you?"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+Using curl:
+
+```bash
+curl -X POST "http://localhost:8000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama-2-7b",
+    "messages": [
+      {"role": "user", "content": "Hello! How are you?"}
+    ]
+  }'
+```
+
+## Current Status
+
+✅ **Phase 1**: Foundation & Infrastructure - Complete
+✅ **Phase 2**: Admin API - Server Registration - Complete
+✅ **Phase 3**: Inference API - Request Routing - Complete
+✅ **Phase 4**: Background Health Checker - Complete
+✅ **Phase 5**: Streaming Support - Complete
+⏳ **Phase 6**: Web User Interface - Pending
+✅ **Phase 7**: Polish & Documentation - Complete
 
 ## Development
 

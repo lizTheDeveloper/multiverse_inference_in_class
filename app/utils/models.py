@@ -749,3 +749,142 @@ class ModelListResponse(BaseModel):
         description="List of available models"
     )
 
+
+# =============================================================================
+# Streaming Response Models
+# =============================================================================
+
+class ChatCompletionStreamDelta(BaseModel):
+    """Delta content in a streaming chat completion chunk.
+    
+    Matches OpenAI's streaming delta format.
+    """
+    
+    role: Optional[str] = Field(
+        None,
+        description="Role of the message (usually only present in first chunk)"
+    )
+    
+    content: Optional[str] = Field(
+        None,
+        description="Incremental content of the message"
+    )
+    
+    function_call: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Function call information (if applicable)"
+    )
+
+
+class ChatCompletionStreamChoice(BaseModel):
+    """Choice in a streaming chat completion chunk.
+    
+    Matches OpenAI's streaming choice format.
+    """
+    
+    index: int = Field(
+        ...,
+        description="Index of this choice"
+    )
+    
+    delta: ChatCompletionStreamDelta = Field(
+        ...,
+        description="Delta content for this chunk"
+    )
+    
+    finish_reason: Optional[str] = Field(
+        None,
+        description="Reason for completion (only in final chunk)"
+    )
+
+
+class ChatCompletionChunk(BaseModel):
+    """Single chunk in a streaming chat completion response.
+    
+    Matches OpenAI's streaming chunk format for Server-Sent Events.
+    """
+    
+    id: str = Field(
+        ...,
+        description="Unique identifier for this completion"
+    )
+    
+    object: str = Field(
+        "chat.completion.chunk",
+        description="Object type"
+    )
+    
+    created: int = Field(
+        ...,
+        description="Unix timestamp of when the completion was created"
+    )
+    
+    model: str = Field(
+        ...,
+        description="Model used for completion"
+    )
+    
+    choices: List[ChatCompletionStreamChoice] = Field(
+        ...,
+        description="List of completion choices"
+    )
+
+
+class CompletionStreamChoice(BaseModel):
+    """Choice in a streaming completion chunk.
+    
+    Matches OpenAI's streaming choice format for completions.
+    """
+    
+    index: int = Field(
+        ...,
+        description="Index of this choice"
+    )
+    
+    text: str = Field(
+        "",
+        description="Incremental text for this chunk"
+    )
+    
+    logprobs: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Log probabilities (if requested)"
+    )
+    
+    finish_reason: Optional[str] = Field(
+        None,
+        description="Reason for completion (only in final chunk)"
+    )
+
+
+class CompletionChunk(BaseModel):
+    """Single chunk in a streaming completion response.
+    
+    Matches OpenAI's streaming chunk format for completions.
+    """
+    
+    id: str = Field(
+        ...,
+        description="Unique identifier for this completion"
+    )
+    
+    object: str = Field(
+        "text_completion",
+        description="Object type"
+    )
+    
+    created: int = Field(
+        ...,
+        description="Unix timestamp of when the completion was created"
+    )
+    
+    model: str = Field(
+        ...,
+        description="Model used for completion"
+    )
+    
+    choices: List[CompletionStreamChoice] = Field(
+        ...,
+        description="List of completion choices"
+    )
+

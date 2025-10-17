@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Server Details - Multiverse Gateway{% endblock %}
+
+{% block content %}
+<div x-data="serverDetail('{{ registration_id }}')" x-init="loadServer()">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900">Server Details</h2>
+        <p class="mt-2 text-sm text-gray-600" x-text="'Registration ID: ' + '{{ registration_id }}'"></p>
+    </div>
+
+    <div x-show="server" class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" x-text="server?.model_name"></h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500" x-text="server?.endpoint_url"></p>
+        </div>
+        <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
+            <dl class="sm:divide-y sm:divide-gray-200">
+                <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">Status</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                        <span :class="'status-' + server?.health_status" class="inline-flex rounded-full px-2 text-xs font-semibold" x-text="server?.health_status"></span>
+                    </dd>
+                </div>
+                <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">Owner</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="server?.owner_name || 'Unknown'"></dd>
+                </div>
+                <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">Last Checked</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2" x-text="formatTimestamp(server?.last_checked_at)"></dd>
+                </div>
+            </dl>
+        </div>
+        <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
+            <a :href="'/server/' + '{{ registration_id }}' + '/edit'" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                Edit Server
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function serverDetail(registrationId) {
+    return {
+        server: null,
+        async loadServer() {
+            try {
+                this.server = await api.get(`/admin/servers/${registrationId}`, true);
+            } catch (error) {
+                toast.error('Failed to load server details');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}
+

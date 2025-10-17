@@ -10,10 +10,12 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.utils.config import get_settings
 from app.utils.database import init_database, close_database, health_check_database
 from app.utils.logger import setup_logger, get_logger
+from app.utils.middleware import RequestSizeLimitMiddleware, RequestIDMiddleware
 from app.services.health_checker import start_health_checker, stop_health_checker
 
 # Initialize settings and logger
@@ -115,7 +117,9 @@ app = FastAPI(
 )
 
 
-# Configure CORS
+# Configure middleware (order matters - added in reverse order of execution)
+
+# CORS middleware
 if settings.cors_enabled:
     app.add_middleware(
         CORSMiddleware,
@@ -125,6 +129,17 @@ if settings.cors_enabled:
         allow_headers=settings.cors_allow_headers,
     )
     logger.info("CORS middleware enabled")
+
+# Request ID middleware for logging correlation
+app.add_middleware(RequestIDMiddleware)
+logger.info("Request ID middleware enabled")
+
+# Request size limit middleware
+app.add_middleware(
+    RequestSizeLimitMiddleware,
+    max_size=settings.max_request_body_size
+)
+logger.info(f"Request size limit middleware enabled (max: {settings.max_request_body_size} bytes)")
 
 
 # Health check endpoint
@@ -192,6 +207,13 @@ app.include_router(admin.router)
 # Inference router (Phase 3)
 from app.routers import inference
 app.include_router(inference.router)
+
+# UI router (Phase 6)
+from app.routers import ui
+app.include_router(ui.router)
+
+# Mount static files for Web UI (Phase 6)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 if __name__ == "__main__":

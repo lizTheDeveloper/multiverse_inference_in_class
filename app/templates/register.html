@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Register Server - Multiverse Gateway{% endblock %}
+
+{% block content %}
+<div x-data="registerForm()" class="max-w-3xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900">Register Model Server</h2>
+        <p class="mt-2 text-sm text-gray-600">Register your model server with the gateway to make it available to others</p>
+    </div>
+
+    <!-- Registration Form -->
+    <form @submit.prevent="submitForm()" class="space-y-6 bg-white shadow sm:rounded-lg p-6">
+        <!-- Model Name -->
+        <div>
+            <label for="model-name" class="block text-sm font-medium text-gray-700">
+                Model Name <span class="text-red-500">*</span>
+            </label>
+            <div class="mt-1">
+                <input type="text" 
+                       id="model-name" 
+                       x-model="formData.model_name"
+                       @input="validateField('model_name')"
+                       required
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="e.g., llama-2-7b, gpt-3.5-turbo">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">Name of the model being served</p>
+            <p x-show="errors.model_name" x-text="errors.model_name" class="mt-2 text-sm text-red-600"></p>
+        </div>
+
+        <!-- Endpoint URL -->
+        <div>
+            <label for="endpoint-url" class="block text-sm font-medium text-gray-700">
+                Endpoint URL <span class="text-red-500">*</span>
+            </label>
+            <div class="mt-1">
+                <input type="url" 
+                       id="endpoint-url" 
+                       x-model="formData.endpoint_url"
+                       @input="validateField('endpoint_url')"
+                       required
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="https://example.ngrok.io">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">Full URL of your model server (must be publicly accessible)</p>
+            <p x-show="errors.endpoint_url" x-text="errors.endpoint_url" class="mt-2 text-sm text-red-600"></p>
+        </div>
+
+        <!-- API Key (Optional) -->
+        <div>
+            <label for="api-key" class="block text-sm font-medium text-gray-700">
+                API Key (Optional)
+            </label>
+            <div class="mt-1">
+                <input type="password" 
+                       id="api-key" 
+                       x-model="formData.api_key"
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="Your server's API key">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">If your server requires authentication</p>
+        </div>
+
+        <!-- Owner Name -->
+        <div>
+            <label for="owner-name" class="block text-sm font-medium text-gray-700">
+                Your Name (Optional)
+            </label>
+            <div class="mt-1">
+                <input type="text" 
+                       id="owner-name" 
+                       x-model="formData.owner_name"
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="John Doe">
+            </div>
+        </div>
+
+        <!-- Owner Email -->
+        <div>
+            <label for="owner-email" class="block text-sm font-medium text-gray-700">
+                Your Email (Optional)
+            </label>
+            <div class="mt-1">
+                <input type="email" 
+                       id="owner-email" 
+                       x-model="formData.owner_email"
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="john@example.com">
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div>
+            <label for="description" class="block text-sm font-medium text-gray-700">
+                Description (Optional)
+            </label>
+            <div class="mt-1">
+                <textarea id="description" 
+                          x-model="formData.description"
+                          rows="3" 
+                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          placeholder="Brief description of your server..."></textarea>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div>
+            <label for="tags" class="block text-sm font-medium text-gray-700">
+                Tags (Optional)
+            </label>
+            <div class="mt-1">
+                <input type="text" 
+                       id="tags" 
+                       x-model="formData.tags"
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       placeholder="e.g., llama, open-source, research">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">Comma-separated tags for categorization</p>
+        </div>
+
+        <!-- Test Connection Button -->
+        <div class="border-t border-gray-200 pt-6">
+            <button type="button" 
+                    @click="testConnection()" 
+                    :disabled="!formData.endpoint_url || testingConnection"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg x-show="!testingConnection" class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <svg x-show="testingConnection" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Test Connection
+            </button>
+            <span x-show="connectionTestResult === 'success'" class="ml-3 text-sm text-green-600">✓ Connection successful!</span>
+            <span x-show="connectionTestResult === 'failed'" class="ml-3 text-sm text-red-600">✗ Connection failed</span>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+            <button type="button" 
+                    @click="window.location.href='/dashboard'" 
+                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Cancel
+            </button>
+            <button type="submit" 
+                    :disabled="submitting"
+                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg x-show="submitting" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Register Server
+            </button>
+        </div>
+    </form>
+
+    <!-- Success Modal -->
+    <div x-show="showSuccessModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div @click="showSuccessModal = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Registration Successful!</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">Your server has been registered successfully.</p>
+                                <div class="mt-4 p-3 bg-gray-50 rounded">
+                                    <p class="text-xs text-gray-500 mb-1">Registration ID:</p>
+                                    <div class="flex items-center space-x-2">
+                                        <code class="text-sm text-gray-900 font-mono" x-text="registrationId"></code>
+                                        <button @click="copyToClipboard(registrationId)" class="text-indigo-600 hover:text-indigo-900">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="window.location.href='/dashboard'" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Go to Dashboard
+                    </button>
+                    <button @click="showSuccessModal = false; resetForm()" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Register Another
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function registerForm() {
+    return {
+        formData: {
+            model_name: '',
+            endpoint_url: '',
+            api_key: '',
+            owner_name: '',
+            owner_email: '',
+            description: '',
+            tags: ''
+        },
+        errors: {},
+        submitting: false,
+        testingConnection: false,
+        connectionTestResult: null,
+        showSuccessModal: false,
+        registrationId: '',
+
+        validateField(field) {
+            // Clear error for this field
+            delete this.errors[field];
+            
+            if (field === 'model_name' && this.formData.model_name) {
+                if (this.formData.model_name.length > 100) {
+                    this.errors.model_name = 'Model name must be 100 characters or less';
+                }
+            }
+            
+            if (field === 'endpoint_url' && this.formData.endpoint_url) {
+                if (!isValidURL(this.formData.endpoint_url)) {
+                    this.errors.endpoint_url = 'Please enter a valid HTTP or HTTPS URL';
+                } else if (this.formData.endpoint_url.includes('localhost') || this.formData.endpoint_url.includes('127.0.0.1')) {
+                    this.errors.endpoint_url = 'localhost URLs are not allowed';
+                }
+            }
+        },
+
+        async testConnection() {
+            if (!this.formData.endpoint_url) {
+                toast.warning('Please enter an endpoint URL first');
+                return;
+            }
+            
+            this.testingConnection = true;
+            this.connectionTestResult = null;
+            
+            try {
+                // Try to fetch /v1/models endpoint
+                const testUrl = this.formData.endpoint_url + '/v1/models';
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: this.formData.api_key ? {
+                        'Authorization': `Bearer ${this.formData.api_key}`
+                    } : {}
+                });
+                
+                if (response.ok) {
+                    this.connectionTestResult = 'success';
+                    toast.success('Connection successful!');
+                } else {
+                    this.connectionTestResult = 'failed';
+                    toast.error('Connection failed: Server returned error');
+                }
+            } catch (error) {
+                this.connectionTestResult = 'failed';
+                toast.error('Connection failed: ' + error.message);
+            } finally {
+                this.testingConnection = false;
+            }
+        },
+
+        async submitForm() {
+            if (!requireAuth()) return;
+            
+            // Validate required fields
+            this.errors = {};
+            if (!this.formData.model_name) {
+                this.errors.model_name = 'Model name is required';
+            }
+            if (!this.formData.endpoint_url) {
+                this.errors.endpoint_url = 'Endpoint URL is required';
+            }
+            
+            // Run validation
+            this.validateField('model_name');
+            this.validateField('endpoint_url');
+            
+            if (Object.keys(this.errors).length > 0) {
+                toast.error('Please fix the errors in the form');
+                return;
+            }
+            
+            this.submitting = true;
+            
+            try {
+                const response = await api.post('/admin/register', this.formData, true);
+                this.registrationId = response.registration_id;
+                this.showSuccessModal = true;
+            } catch (error) {
+                console.error('Registration failed:', error);
+                toast.error('Registration failed: ' + error.message);
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        resetForm() {
+            this.formData = {
+                model_name: '',
+                endpoint_url: '',
+                api_key: '',
+                owner_name: '',
+                owner_email: '',
+                description: '',
+                tags: ''
+            };
+            this.errors = {};
+            this.connectionTestResult = null;
+        }
+    };
+}
+</script>
+{% endblock %}
+

@@ -2,11 +2,13 @@
 
 This module implements the core routing logic for directing inference requests
 to healthy backend servers with round-robin load balancing and automatic failover.
+Supports both regular and streaming responses.
 """
 
 import time
 import httpx
-from typing import Optional, Dict, Any, Tuple
+import json
+from typing import Optional, Dict, Any, Tuple, AsyncGenerator
 from threading import Lock
 
 from app.utils.logger import get_logger
@@ -234,6 +236,205 @@ async def forward_request(
             exc_info=True
         )
         return 500, {}, error_msg
+
+
+async def forward_streaming_request(
+    server: dict,
+    endpoint: str,
+    request_data: dict,
+    timeout: int = 300
+) -> AsyncGenerator[str, None]:
+    """Forward a streaming inference request to a backend server.
+    
+    This function handles Server-Sent Events (SSE) streaming by forwarding
+    the request to the backend and yielding chunks as they arrive.
+    
+    Args:
+        server: Server dictionary containing endpoint_url and api_key
+        endpoint: API endpoint path (e.g., '/v1/chat/completions')
+        request_data: Request body as dictionary
+        timeout: Request timeout in seconds (default: 300)
+        
+    Yields:
+        SSE-formatted strings (data: {json}\\n\\n)
+        
+    Raises:
+        Exception: If streaming fails or connection is lost
+    """
+    url = f"{server['endpoint_url']}{endpoint}"
+    headers = {}
+    
+    # Add backend server's API key if configured
+    if server.get('api_key'):
+        headers['Authorization'] = f"Bearer {server['api_key']}"
+    
+    start_time = time.time()
+    chunk_count = 0
+    total_bytes = 0
+    
+    logger.info(
+        f"Starting streaming request to {server['registration_id']} at {url}",
+        extra={"server_id": server['registration_id'], "endpoint": endpoint}
+    )
+    
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                'POST',
+                url,
+                json=request_data,
+                headers=headers
+            ) as response:
+                
+                # Check if response status is OK
+                if response.status_code != 200:
+                    elapsed_ms = int((time.time() - start_time) * 1000)
+                    error_msg = f"Backend returned status {response.status_code}"
+                    logger.error(
+                        f"Streaming request to {server['registration_id']} failed: "
+                        f"status={response.status_code}, latency={elapsed_ms}ms"
+                    )
+                    
+                    # Try to read error response
+                    try:
+                        error_body = await response.aread()
+                        logger.error(f"Error body: {error_body.decode()}")
+                    except Exception:
+                        pass
+                    
+                    raise Exception(error_msg)
+                
+                # Stream chunks from backend to client
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        chunk_count += 1
+                        total_bytes += len(chunk)
+                        
+                        # Decode and yield the chunk
+                        decoded_chunk = chunk.decode('utf-8')
+                        yield decoded_chunk
+                
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                
+                logger.info(
+                    f"Streaming request to {server['registration_id']} completed: "
+                    f"chunks={chunk_count}, bytes={total_bytes}, latency={elapsed_ms}ms",
+                    extra={
+                        "server_id": server['registration_id'],
+                        "chunk_count": chunk_count,
+                        "total_bytes": total_bytes,
+                        "latency_ms": elapsed_ms
+                    }
+                )
+                
+    except httpx.TimeoutException as exc:
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Streaming timeout after {elapsed_ms}ms"
+        logger.error(
+            f"Timeout during streaming request to {url}: {error_msg}",
+            extra={
+                "server_id": server['registration_id'],
+                "chunk_count": chunk_count,
+                "total_bytes": total_bytes
+            }
+        )
+        raise Exception(error_msg)
+    
+    except httpx.RequestError as exc:
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Request error: {str(exc)}"
+        logger.error(
+            f"Error during streaming request to {url}: {error_msg}",
+            extra={
+                "server_id": server['registration_id'],
+                "chunk_count": chunk_count,
+                "total_bytes": total_bytes
+            }
+        )
+        raise Exception(error_msg)
+    
+    except Exception as exc:
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Unexpected error: {str(exc)}"
+        logger.error(
+            f"Unexpected error during streaming request to {url}: {error_msg}",
+            exc_info=True,
+            extra={
+                "server_id": server['registration_id'],
+                "chunk_count": chunk_count,
+                "total_bytes": total_bytes
+            }
+        )
+        raise Exception(error_msg)
+
+
+async def handle_streaming_request(
+    model_name: str,
+    endpoint: str,
+    request_data: dict
+) -> Tuple[Optional[dict], Optional[AsyncGenerator[str, None]], Optional[str]]:
+    """Handle a streaming inference request with server selection.
+    
+    This function finds a healthy server, selects one using round-robin,
+    and returns a streaming generator for the response.
+    
+    Args:
+        model_name: Name of the model being requested
+        endpoint: API endpoint path
+        request_data: Request body as dictionary
+        
+    Returns:
+        Tuple of (selected_server_dict, streaming_generator, error_message)
+        If successful: (server, generator, None)
+        If failed: (None, None, error_message)
+    """
+    logger.info(
+        f"Handling streaming {endpoint} request for model '{model_name}'"
+    )
+    
+    # Get healthy servers
+    healthy_servers = await get_healthy_servers(model_name)
+    
+    if not healthy_servers:
+        logger.error(f"No healthy servers available for model '{model_name}'")
+        return None, None, "No healthy servers available for this model"
+    
+    # Select server using round-robin
+    server = _load_balancer.select_server(model_name, healthy_servers)
+    
+    if not server:
+        logger.error(f"Failed to select server for model '{model_name}'")
+        return None, None, "Failed to select server"
+    
+    logger.info(
+        f"Selected server {server['registration_id']} for streaming request"
+    )
+    
+    try:
+        # Create streaming generator
+        stream_generator = forward_streaming_request(
+            server,
+            endpoint,
+            request_data,
+            timeout=settings.request_timeout_seconds
+        )
+        
+        return server, stream_generator, None
+        
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error(
+            f"Failed to create streaming request: {error_msg}",
+            exc_info=True
+        )
+        
+        # Mark server as unhealthy
+        await mark_server_unhealthy(
+            server['id'],
+            f"Streaming request failed: {error_msg}"
+        )
+        
+        return None, None, error_msg
 
 
 async def handle_request(
