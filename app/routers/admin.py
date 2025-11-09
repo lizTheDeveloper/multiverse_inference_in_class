@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 
-from app.utils.auth import verify_admin_api_key
+from app.utils.auth import verify_admin_api_key, verify_admin_auth
 from app.utils.config import get_settings
 from app.utils.logger import get_logger
 from app.utils.models import (
@@ -40,7 +40,7 @@ settings = get_settings()
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"],
-    dependencies=[Depends(verify_admin_api_key)],  # All endpoints require admin API key
+    dependencies=[Depends(verify_admin_auth)],  # All endpoints require admin auth (session or API key)
 )
 
 
@@ -497,7 +497,7 @@ async def list_model_servers(
             "description": "Server not found"
         }
     },
-    dependencies=[Depends(verify_admin_api_key)]
+    dependencies=[Depends(verify_admin_auth)]
 )
 async def get_server(registration_id: str):
     """Get detailed information about a specific server.

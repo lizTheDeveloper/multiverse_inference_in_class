@@ -401,56 +401,56 @@ Frontend (JavaScript/CSS via CDN):
 **Phase Goal**: Implement OpenAI-compatible inference endpoints with request routing, round-robin load balancing, and automatic failover.
 
 **Key Tasks**:
-- [ ] Create Pydantic models for inference API per **FR-API-INF-002**, **FR-API-INF-003**
+- [x] Create Pydantic models for inference API per **FR-API-INF-002**, **FR-API-INF-003**
   - `ChatCompletionRequest` model
   - `ChatCompletionResponse` model
   - `CompletionRequest` model
   - `CompletionResponse` model
   - `ModelListResponse` model
   - Match OpenAI API specification exactly
-- [ ] Implement Router Service in `app/services/router.py`
+- [x] Implement Router Service in `app/services/router.py`
   - `select_server()` - Round-robin load balancing per **FR-ROUTE-002**
   - `forward_request()` - Proxy request to backend server per **FR-ROUTE-005**
   - `handle_request()` - Main routing logic per **FR-ROUTE-001**
-- [ ] Implement round-robin load balancer
+- [x] Implement round-robin load balancer
   - Track last-used index per model name (in-memory dict)
   - Cycle through healthy servers
   - Thread-safe counter increment
-- [ ] Implement request forwarding with `httpx.AsyncClient`
+- [x] Implement request forwarding with `httpx.AsyncClient`
   - Forward all OpenAI-compatible parameters per **FR-API-INF-007**
   - Include backend server's API key if configured per **FR-ROUTE-006**
   - Set timeout per **FR-ROUTE-003** (default 300s)
   - Handle both success and error responses
-- [ ] Implement retry logic with failover per **FR-ROUTE-004**
+- [x] Implement retry logic with failover per **FR-ROUTE-004**
   - If request fails, mark server as unhealthy
   - Retry with next available healthy server
   - Maximum 2 retry attempts
   - Return 504 if all attempts exhausted
-- [ ] Create inference router in `app/routers/inference.py`
+- [x] Create inference router in `app/routers/inference.py`
   - `GET /v1/models` per **FR-API-INF-005**
   - `POST /v1/chat/completions` (non-streaming only) per **FR-API-INF-001**
   - `POST /v1/completions` (non-streaming only) per **FR-API-INF-004**
-- [ ] Implement `/v1/models` endpoint
+- [x] Implement `/v1/models` endpoint
   - Query registry for all active servers
   - Group by model name
   - Count healthy servers per model
   - Return OpenAI-compatible list format
-- [ ] Implement `/v1/chat/completions` endpoint (non-streaming)
+- [x] Implement `/v1/chat/completions` endpoint (non-streaming)
   - Accept OpenAI-compatible request
   - Query healthy servers for requested model
   - Return 404 if no servers registered per **FR-ERROR-001**
   - Return 503 if all servers unhealthy per **FR-ERROR-001**
   - Route to selected server
   - Return OpenAI-compatible response
-- [ ] Implement `/v1/completions` endpoint (non-streaming)
+- [x] Implement `/v1/completions` endpoint (non-streaming)
   - Similar logic to chat completions
-- [ ] Add comprehensive logging per **FR-LOG-005**
+- [x] Add comprehensive logging per **FR-LOG-005**
   - Log routing decisions (which server selected)
   - Log request latency
   - Log retry attempts
   - Log failures
-- [ ] Add optional `X-Gateway-Server-ID` response header per **FR-API-INF-008**
-- [ ] Write integration tests
+- [x] Add optional `X-Gateway-Server-ID` response header per **FR-API-INF-008**
+- [x] Write integration tests
   - Test routing to healthy server (TC-INF-001)
   - Test 404 for non-existent model (TC-INF-002)
   - Test 503 when all servers unhealthy (TC-INF-003)
@@ -461,17 +461,17 @@ Frontend (JavaScript/CSS via CDN):
 **Effort Estimate**: M (Medium-high complexity, core routing logic)
 
 **Definition of Done**:
-- [ ] All inference endpoints functional and documented in `/docs`
-- [ ] OpenAI Python library can successfully make requests
-- [ ] Round-robin load balancing working correctly
-- [ ] Automatic failover on server failure
-- [ ] Appropriate error codes (404, 503, 504) returned
-- [ ] Request/response format matches OpenAI specification exactly
-- [ ] Routing decisions logged with latency metrics
-- [ ] Integration tests pass with ≥70% coverage
+- [x] All inference endpoints functional and documented in `/docs`
+- [x] OpenAI Python library can successfully make requests
+- [x] Round-robin load balancing working correctly
+- [x] Automatic failover on server failure
+- [x] Appropriate error codes (404, 503, 504) returned
+- [x] Request/response format matches OpenAI specification exactly
+- [x] Routing decisions logged with latency metrics
+- [x] Integration tests pass with ≥70% coverage
 - [ ] Manual test: 3 students successfully make inference requests using OpenAI library
 - [ ] Gateway overhead < 100ms measured with echo server
-- [ ] PR merged to main branch
+- [x] PR merged to main branch
 
 ---
 
@@ -915,10 +915,125 @@ If student servers are known to be highly unstable, consider: Phase 1 → Phase 
 
 ---
 
-**Document Version**: 2.0  
-**Last Updated**: 2025-10-17  
-**Next Review**: After Phase 3 completion
+## 8. Production Deployment
+
+### Google Cloud Engine Deployment (Live)
+
+**Deployment Date**: October 17, 2025
+**Deployed By**: Automated via gcloud CLI
+**Status**: ✅ Active and Healthy
+
+#### Instance Configuration
+
+- **Instance Name**: multiverse-gateway
+- **Machine Type**: e2-small (2 vCPUs, 2GB RAM)
+- **Zone**: us-west1-b
+- **Region**: us-west1
+- **Project**: multiverseschool
+- **External IP**: 136.117.2.59
+- **OS**: Ubuntu 22.04 LTS
+- **Disk**: 20GB standard persistent disk
+
+#### Access Points
+
+**Web User Interface**:
+- Dashboard: http://136.117.2.59/dashboard
+- Server Registration: http://136.117.2.59/register
+- Model Viewer: http://136.117.2.59/models
+- Inference Testing: http://136.117.2.59/test
+- Settings: http://136.117.2.59/settings
+
+**API Endpoints**:
+- Base URL: http://136.117.2.59
+- API Documentation: http://136.117.2.59/docs
+- Health Check: http://136.117.2.59/health
+- Models List: http://136.117.2.59/v1/models
+
+#### Credentials
+
+**Admin API Key**: `6ix6iURn29_4MPybfbyXgbxoO8-dPeoKuRPRR9Sj58o`
+(Required for server registration and admin operations)
+
+#### Deployed Services
+
+1. **FastAPI Application**
+   - Running on port 8000 (internal)
+   - Managed by systemd: `multiverse-gateway.service`
+   - Auto-starts on boot
+   - All phases (1-6) fully operational
+
+2. **Nginx Reverse Proxy**
+   - Listening on port 80 (HTTP)
+   - Proxying to application
+   - Streaming support enabled
+   - Logs: `/var/log/nginx/multiverse-gateway-*.log`
+
+3. **Features Live**
+   - ✅ Server registration (API + Web UI)
+   - ✅ Health monitoring (background service)
+   - ✅ Request routing (round-robin load balancing)
+   - ✅ Streaming support (SSE)
+   - ✅ Web dashboard (real-time updates)
+   - ✅ Inference testing UI
+
+#### Service Management
+
+```bash
+# SSH into instance
+gcloud compute ssh multiverse-gateway --project=multiverseschool --zone=us-west1-b
+
+# Check service status
+sudo systemctl status multiverse-gateway
+
+# View logs
+sudo journalctl -u multiverse-gateway -f
+
+# Restart service
+sudo systemctl restart multiverse-gateway
+```
+
+#### File Locations
+
+- Application: `/opt/multiverse-gateway/`
+- Virtual Environment: `/opt/multiverse-gateway/env/`
+- Configuration: `/opt/multiverse-gateway/.env`
+- Database: `/opt/multiverse-gateway/gateway.db`
+- systemd Service: `/etc/systemd/system/multiverse-gateway.service`
+- Nginx Config: `/etc/nginx/sites-available/multiverse-gateway`
+
+#### Backup & Maintenance
+
+```bash
+# Create backup
+sudo su - gateway -c 'cd /opt/multiverse-gateway && bash deploy/backup.sh'
+
+# Update application
+sudo su - gateway -c 'cd /opt/multiverse-gateway && bash deploy/update.sh'
+```
+
+#### Monitoring
+
+- Gateway Health: http://136.117.2.59/health
+- Application Logs: `sudo journalctl -u multiverse-gateway -f`
+- Nginx Logs: `sudo tail -f /var/log/nginx/multiverse-gateway-*.log`
+
+#### Security
+
+- HTTP/HTTPS firewall rules configured
+- Admin API key authentication required
+- Non-root service execution (gateway user)
+- Security hardening via systemd
+
+**Full deployment documentation**: See `GCE_DEPLOYMENT.md`
+
+---
+
+**Document Version**: 2.1
+**Last Updated**: 2025-10-17
+**Next Review**: After student testing in classroom
 **Changelog**:
+- v2.1: Added production deployment information (GCE)
+- v2.1: Marked Phase 3 as complete
 - v2.0: Added Phase 6 (Web User Interface) with comprehensive UI specifications
 - v1.0: Initial plan with 6 phases (API-only implementation)
 

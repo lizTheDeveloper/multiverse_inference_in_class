@@ -1,3 +1,16 @@
+#!/bin/bash
+gcloud compute ssh multiverse-gateway --project=multiverseschool --zone=us-west1-b << 'ENDSSH'
+
+cd /opt/multiverse-gateway
+
+# Backup
+sudo cp -a . ../backup-$(date +%s)
+
+# Stop service
+sudo systemctl stop multiverse-gateway
+
+# Update main.py to redirect root
+sudo -u gateway cat > app/main.py << 'MAINPY'
 """Main FastAPI application for the Multiverse Inference Gateway.
 
 This module initializes the FastAPI application, sets up middleware,
@@ -222,4 +235,15 @@ if __name__ == "__main__":
         reload=settings.reload,
         log_level=settings.log_level.lower(),
     )
+
+MAINPY
+
+# Start service
+sudo systemctl start multiverse-gateway
+sleep 3
+sudo systemctl status multiverse-gateway --no-pager | head -10
+
+echo "DONE"
+
+ENDSSH
 
